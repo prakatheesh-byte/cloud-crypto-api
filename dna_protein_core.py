@@ -1,62 +1,43 @@
 import numpy as np
 
-# ---------------- DNA ENCODING ----------------
 def dna_encode(arr):
-    d1 = (arr >> 6) & 3
-    d2 = (arr >> 4) & 3
-    d3 = (arr >> 2) & 3
-    d4 = arr & 3
-    return np.stack([d1, d2, d3, d4], axis=1)
+    b1 = (arr >> 6) & 3
+    b2 = (arr >> 4) & 3
+    b3 = (arr >> 2) & 3
+    b4 = arr & 3
+    return np.stack([b1, b2, b3, b4], axis=1)
 
-# ---------------- PROTEIN ENCODING ----------------
-def protein_encode(seq, rounds):
-    seq = seq.copy()
-    for p in range(1, rounds + 1):
-        shifts = (seq.sum(axis=1) + p) % 4
-        for s in range(4):
-            idx = shifts == s
-            if np.any(idx):
-                seq[idx] = np.roll(seq[idx], shift=s, axis=1)
-    return seq
-
-# ---------------- CHAOTIC SEQUENCE ----------------
-def logistic_chaos(n, r=3.99, x0=0.7):
-    x = x0
-    for _ in range(500):   # transient removal
-        x = r * x * (1 - x)
-
-    chaos = np.zeros(n)
-    for i in range(n):
-        x = r * x * (1 - x)
-        chaos[i] = x
-
-    return (np.floor(chaos * 256) % 256).astype(np.uint8)
-
-# ---------------- FULL ENCRYPTION ----------------
-def dna_protein_encrypt(arr, D=2, P=2, r=3.99):
-    flat = arr.flatten().astype(np.uint8)
-
-    # DNA encoding
-    seq = dna_encode(flat)
-
-    # DNA rounds
-    for _ in range(1, D):
-        seq = seq ^ 3
-
-    # Protein rounds
-    seq = protein_encode(seq, P)
-
-    # Recombine DNA symbols
-    combined = (
-        seq[:, 0] * 64 +
-        seq[:, 1] * 16 +
-        seq[:, 2] * 4  +
-        seq[:, 3]
+def dna_decode(seq):
+    return (
+        (seq[:,0] << 6) |
+        (seq[:,1] << 4) |
+        (seq[:,2] << 2) |
+        seq[:,3]
     ).astype(np.uint8)
 
-    # Chaos
-    chaos = logistic_chaos(len(combined), r)
+def protein_operation(seq, rounds=2):
+    for r in range(rounds):
+        shifts = (np.sum(seq, axis=1) + r) % 4
+        for i in range(len(seq)):
+            seq[i] = np.roll(seq[i], shifts[i])
+    return seq
 
-    # XOR diffusion
-    encrypted = combined ^ chaos
-    return encrypted
+def chaotic_xor(arr, r=3.99, x0=0.7):
+    x = x0
+    chaos = np.zeros(len(arr), dtype=np.uint8)
+    for i in range(len(arr)):
+        x = r * x * (1 - x)
+        chaos[i] = int(x * 256) % 256
+    return np.bitwise_xor(arr, chaos)
+
+def dna_protein_encrypt(arr):
+    seq = dna_encode(arr)
+    seq = protein_operation(seq)
+    flat = dna_decode(seq)
+    return chaotic_xor(flat)
+
+def dna_protein_decrypt(arr):
+    flat = chaotic_xor(arr)
+    seq = dna_encode(flat)
+    seq = protein_operation(seq)
+    return dna_decode(seq)
