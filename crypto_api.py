@@ -23,13 +23,12 @@ async def encrypt_image(file: UploadFile = File(...)):
 @app.post("/decrypt")
 async def decrypt_image(data: list):
     arr = np.array(data, dtype=np.uint8)
-
     decrypted = dna_protein_decrypt(arr)
-
     return {
         "decrypted_bytes": decrypted.tolist(),
         "length": len(decrypted)
     }
+
 
 
 @app.get("/")
