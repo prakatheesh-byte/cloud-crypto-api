@@ -51,14 +51,16 @@ def dna_protein_encrypt(arr):
     flat = dna_decode(seq)
 
     chaos = logistic_map(len(flat))
-    encrypted = (flat + chaos) % 256
+    encrypted = (flat.astype(np.int16) + chaos.astype(np.int16)) % 256
+
 
     return encrypted.astype(np.uint8)
 
 # ---------- DECRYPT ----------
 def dna_protein_decrypt(arr):
     chaos = logistic_map(len(arr))
-    flat = (arr - chaos) % 256
+    flat = (arr.astype(np.int16) - chaos.astype(np.int16)) % 256
+    flat = flat.astype(np.uint8)
 
     seq = dna_encode(flat)
     seq = protein_inverse(seq)
