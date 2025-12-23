@@ -36,13 +36,30 @@ async def encrypt_image(file: UploadFile = File(...)):
     )
 
 @app.post("/decrypt")
-async def decrypt_image(data: list):
-    arr = np.array(data, dtype=np.uint8)
-    decrypted = dna_protein_decrypt(arr)
-    return {
-        "decrypted_bytes": decrypted.tolist(),
-        "length": len(decrypted)
-    }
+async def decrypt_image(file: UploadFile = File(...)):
+
+    # 1. Open encrypted image
+    image = Image.open(file.file).convert("L")
+    arr = np.array(image, dtype=np.uint8)
+
+    # 2. Decrypt
+    flat = arr.flatten()
+    decrypted = dna_protein_decrypt(flat.astype(np.int16)).astype(np.uint8)
+
+    # 3. Convert back to image
+    decrypted_img = decrypted.reshape(arr.shape)
+    dec_image = Image.fromarray(decrypted_img)
+
+    # 4. Save decrypted image
+    save_path = "decrypted.png"
+    dec_image.save(save_path)
+
+    # 5. Return decrypted image
+    return FileResponse(
+        path=save_path,
+        media_type="image/png",
+        filename="decrypted.png"
+    )
 
 
 
