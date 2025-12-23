@@ -7,7 +7,9 @@ app = FastAPI(title="Lightweight Image Crypto API")
 async def encrypt_image(file: UploadFile = File(...)):
     data = await file.read()
     arr = np.frombuffer(data, dtype=np.uint8)
-    encrypted = np.bitwise_xor(arr, 255)  # lightweight XOR
+    from dna_protein_core import dna_protein_encrypt
+encrypted = dna_protein_encrypt(arr)
+  # lightweight XOR
     return {
         "encrypted_bytes": encrypted.tolist(),
         "length": len(encrypted)
