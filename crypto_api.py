@@ -21,3 +21,9 @@ async def decrypt_image(data: list):
         "decrypted_bytes": decrypted.tolist(),
         "length": len(decrypted)
     }
+@app.get("/")
+def root():
+    return {
+        "status": "Cloud Crypto API is running",
+        "endpoints": ["/encrypt", "/decrypt"]
+    }
