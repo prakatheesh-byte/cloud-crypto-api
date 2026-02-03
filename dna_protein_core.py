@@ -19,16 +19,15 @@ def dna_decode(seq):
 # ---------- PROTEIN ----------
 def protein_permute(seq, rounds=2):
     for p in range(rounds):
-        shifts = (np.sum(seq, axis=1) + p) % 4
-        idx = np.arange(4)
+        shifts = ((np.sum(seq, axis=1) + p) % 4).astype(np.int32)
+        idx = np.arange(4, dtype=np.int32)
         seq = seq[np.arange(len(seq))[:, None], (idx - shifts[:, None]) % 4]
     return seq
 
-
 def protein_inverse(seq, rounds=2):
     for p in reversed(range(rounds)):
-        shifts = (np.sum(seq, axis=1) + p) % 4
-        idx = np.arange(4)
+        shifts = ((np.sum(seq, axis=1) + p) % 4).astype(np.int32)
+        idx = np.arange(4, dtype=np.int32)
         seq = seq[np.arange(len(seq))[:, None], (idx + shifts[:, None]) % 4]
     return seq
 
