@@ -3,3 +3,5 @@ uvicorn
 numpy
 pillow
 python-multipart
+scikit-image
+scipy
