@@ -3,6 +3,7 @@ from fastapi.responses import FileResponse
 from PIL import Image
 import numpy as np
 import os
+from metrics import compute_metrics_strong
 
 from dna_protein_core import dna_protein_encrypt, dna_protein_decrypt
 
@@ -81,3 +82,44 @@ def root():
         "status": "Cloud Crypto API is running",
         "endpoints": ["/encrypt", "/decrypt"]
     }
+@app.post("/metrics")
+async def compute_metrics(
+    file: UploadFile = File(...),
+    dna_rounds: int = 1,
+    protein_rounds: int = 2,
+    r: float = 3.99,
+    x0: float = 0.7
+):
+    # Load image
+    image = Image.open(file.file).convert("L")
+    I = np.array(image, dtype=np.uint8)
+
+    # Encrypt
+    Enc = dna_protein_encrypt(
+        I.flatten(),
+        dna_rounds,
+        protein_rounds,
+        r,
+        x0
+    ).reshape(I.shape)
+
+    # Decrypt
+    Dec = dna_protein_decrypt(
+        Enc.flatten(),
+        dna_rounds,
+        protein_rounds,
+        r,
+        x0
+    ).reshape(I.shape)
+
+    # Compute metrics
+    metrics = compute_metrics_strong(
+        I, Enc, Dec,
+        dna_protein_encrypt,
+        dna_rounds,
+        protein_rounds,
+        r,
+        x0
+    )
+
+    return metrics
