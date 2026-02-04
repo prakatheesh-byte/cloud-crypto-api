@@ -19,15 +19,12 @@ def correlation_coeff(img, direction="H"):
     elif direction == "V":
         x = img[:-1, :].flatten()
         y = img[1:, :].flatten()
-    else:  # Diagonal
+    else:
         x = img[:-1, :-1].flatten()
         y = img[1:, 1:].flatten()
 
-    x_mean = np.mean(x)
-    y_mean = np.mean(y)
-
-    num = np.sum((x - x_mean) * (y - y_mean))
-    den = np.sqrt(np.sum((x - x_mean)**2) * np.sum((y - y_mean)**2))
+    num = np.sum((x - x.mean()) * (y - y.mean()))
+    den = np.sqrt(np.sum((x - x.mean())**2) * np.sum((y - y.mean())**2))
 
     return num / den if den != 0 else 0
 
@@ -46,8 +43,9 @@ def compute_npcr_uaci(enc1, enc2):
 
 # ---------- COMPLETE METRICS ----------
 def compute_metrics(
-    I_gray,
+    I,
     Enc,
+    Dec,
     encrypt_func,
     dna_rounds,
     protein_rounds,
@@ -56,34 +54,30 @@ def compute_metrics(
 ):
     metrics = {}
 
-    # MSE (encryption only)
-    metrics["MSE_enc"] = np.mean(
-        (I_gray.astype(float) - Enc.astype(float))**2
-    )
-
-    # PSNR
-    metrics["PSNR_enc"] = peak_signal_noise_ratio(I_gray, Enc, data_range=255)
-
-    # SSIM
-    metrics["SSIM"] = structural_similarity(I_gray, Enc, data_range=255)
+    # Encryption metrics
+    metrics["MSE_enc"] = np.mean((I.astype(float) - Enc.astype(float))**2)
+    metrics["PSNR_enc"] = peak_signal_noise_ratio(I, Enc, data_range=255)
+    metrics["SSIM_enc"] = structural_similarity(I, Enc, data_range=255)
 
     # Entropy
-    metrics["Entropy_Orig"] = image_entropy(I_gray)
+    metrics["Entropy_Orig"] = image_entropy(I)
     metrics["Entropy_Enc"] = image_entropy(Enc)
 
-    # Correlation (Original)
-    metrics["Corr_H_Orig"] = correlation_coeff(I_gray, "H")
-    metrics["Corr_V_Orig"] = correlation_coeff(I_gray, "V")
-    metrics["Corr_D_Orig"] = correlation_coeff(I_gray, "D")
+    # Correlation
+    metrics["Corr_H_Orig"] = correlation_coeff(I, "H")
+    metrics["Corr_V_Orig"] = correlation_coeff(I, "V")
+    metrics["Corr_D_Orig"] = correlation_coeff(I, "D")
 
-    # Correlation (Encrypted)
     metrics["Corr_H_Enc"] = correlation_coeff(Enc, "H")
     metrics["Corr_V_Enc"] = correlation_coeff(Enc, "V")
     metrics["Corr_D_Enc"] = correlation_coeff(Enc, "D")
 
-    # NPCR & UACI
-    I_mod = I_gray.copy()
-    h, w = I_gray.shape
+    # Decryption correctness
+    metrics["MSE_dec_check"] = np.mean((I.astype(float) - Dec.astype(float))**2)
+
+    # NPCR & UACI (computed internally)
+    I_mod = I.copy()
+    h, w = I.shape
     I_mod[h//2, w//2] ^= 128
 
     Enc_mod = encrypt_func(
@@ -92,7 +86,7 @@ def compute_metrics(
         protein_rounds,
         r,
         x0
-    ).reshape(I_gray.shape)
+    ).reshape(I.shape)
 
     metrics["NPCR_pct"], metrics["UACI_pct"] = compute_npcr_uaci(Enc, Enc_mod)
 
