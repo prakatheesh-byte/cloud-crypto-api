@@ -12,11 +12,22 @@ def correlation_coeff(img, direction="H"):
     img = img.astype(np.float64)
 
     if direction == "H":
-        return np.corrcoef(img[:, :-1].flatten(), img[:, 1:].flatten())[0, 1]
+        x = img[:, :-1].flatten()
+        y = img[:, 1:].flatten()
     elif direction == "V":
-        return np.corrcoef(img[:-1, :].flatten(), img[1:, :].flatten())[0, 1]
-    elif direction == "D":
-        return np.corrcoef(img[:-1, :-1].flatten(), img[1:, 1:].flatten())[0, 1]
+        x = img[:-1, :].flatten()
+        y = img[1:, :].flatten()
+    else:  # Diagonal
+        x = img[:-1, :-1].flatten()
+        y = img[1:, 1:].flatten()
+
+    x_mean = np.mean(x)
+    y_mean = np.mean(y)
+
+    num = np.sum((x - x_mean) * (y - y_mean))
+    den = np.sqrt(np.sum((x - x_mean)**2) * np.sum((y - y_mean)**2))
+
+    return num / den if den != 0 else 0
 
 
 def compute_npcr_uaci(enc1, enc2):
