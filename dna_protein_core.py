@@ -10,10 +10,10 @@ def dna_encode(arr):
 
 def dna_decode(seq):
     return (
-        (seq[:,0] << 6) |
-        (seq[:,1] << 4) |
-        (seq[:,2] << 2) |
-        seq[:,3]
+        (seq[:, 0] << 6) |
+        (seq[:, 1] << 4) |
+        (seq[:, 2] << 2) |
+        seq[:, 3]
     ).astype(np.uint8)
 
 # ---------- PROTEIN ----------
@@ -34,7 +34,7 @@ def protein_inverse(seq, rounds=2):
 # ---------- CHAOS ----------
 def logistic_map(n, r, x0):
     x = x0
-    for _ in range(50):   # warm-up
+    for _ in range(50):  # warm-up
         x = r * x * (1 - x)
 
     chaos = np.empty(n, dtype=np.uint8)
@@ -44,29 +44,60 @@ def logistic_map(n, r, x0):
 
     return chaos
 
+# ---------- CHAOTIC PERMUTATION ----------
+def chaotic_permutation(n, r, x0):
+    x = x0
+    for _ in range(100):
+        x = r * x * (1 - x)
+
+    perm = np.arange(n)
+    for i in range(n):
+        x = r * x * (1 - x)
+        j = int(x * n) % n
+        perm[i], perm[j] = perm[j], perm[i]
+
+    return perm
+
+def inverse_permutation(perm):
+    inv = np.empty_like(perm)
+    inv[perm] = np.arange(len(perm))
+    return inv
+
 # ---------- ENCRYPT ----------
 def dna_protein_encrypt(arr, dna_rounds=1, protein_rounds=2, r=3.99, x0=0.7):
     arr = arr.astype(np.uint8)
 
+    # DNA + Protein Encoding
     for _ in range(dna_rounds):
         seq = dna_encode(arr)
         seq = protein_permute(seq, protein_rounds)
         arr = dna_decode(seq)
 
+    # 🔥 Chaotic Pixel Position Scrambling (FIX)
+    perm = chaotic_permutation(len(arr), r, x0)
+    arr = arr[perm]
+
+    # Chaotic Diffusion
     chaos = logistic_map(len(arr), r, x0)
     encrypted = (arr.astype(np.int16) + chaos.astype(np.int16)) % 256
-    return encrypted.astype(np.uint8)
+
+    return encrypted.astype(np.uint8), perm
 
 # ---------- DECRYPT ----------
-def dna_protein_decrypt(arr, dna_rounds=1, protein_rounds=2, r=3.99, x0=0.7):
+def dna_protein_decrypt(arr, perm, dna_rounds=1, protein_rounds=2, r=3.99, x0=0.7):
+    # Reverse diffusion
     chaos = logistic_map(len(arr), r, x0)
     arr = (arr.astype(np.int16) - chaos.astype(np.int16)) % 256
     arr = arr.astype(np.uint8)
 
+    # 🔥 Reverse pixel scrambling
+    inv_perm = inverse_permutation(perm)
+    arr = arr[inv_perm]
+
+    # Reverse DNA + Protein
     for _ in range(dna_rounds):
         seq = dna_encode(arr)
         seq = protein_inverse(seq, protein_rounds)
         arr = dna_decode(seq)
 
     return arr.astype(np.uint8)
-
