@@ -2,12 +2,14 @@ import numpy as np
 from skimage.metrics import peak_signal_noise_ratio, structural_similarity
 
 
+# ---------- ENTROPY ----------
 def image_entropy(img):
     hist, _ = np.histogram(img.flatten(), bins=256, range=(0,256), density=True)
     hist = hist[hist > 0]
     return -np.sum(hist * np.log2(hist))
 
 
+# ---------- CORRELATION ----------
 def correlation_coeff(img, direction="H"):
     img = img.astype(np.float64)
 
@@ -30,24 +32,34 @@ def correlation_coeff(img, direction="H"):
     return num / den if den != 0 else 0
 
 
+# ---------- NPCR & UACI ----------
 def compute_npcr_uaci(enc1, enc2):
     diff = enc1 != enc2
     npcr = np.sum(diff) / diff.size * 100
 
-    uaci = np.sum(np.abs(enc1.astype(np.int16) - enc2.astype(np.int16))) \
-           / (enc1.size * 255) * 100
+    uaci = np.sum(
+        np.abs(enc1.astype(np.int16) - enc2.astype(np.int16))
+    ) / (enc1.size * 255) * 100
 
     return npcr, uaci
 
 
-def compute_metrics_strong(I_gray, Enc, Dec, encrypt_func,
-                           dna_rounds, protein_rounds, r, x0):
-
+# ---------- COMPLETE METRICS ----------
+def compute_metrics(
+    I_gray,
+    Enc,
+    encrypt_func,
+    dna_rounds,
+    protein_rounds,
+    r,
+    x0
+):
     metrics = {}
 
-    # MSE
-    metrics["MSE_enc"] = np.mean((I_gray.astype(float) - Enc.astype(float))**2)
-    metrics["MSE_dec"] = np.mean((I_gray.astype(float) - Dec.astype(float))**2)
+    # MSE (encryption only)
+    metrics["MSE_enc"] = np.mean(
+        (I_gray.astype(float) - Enc.astype(float))**2
+    )
 
     # PSNR
     metrics["PSNR_enc"] = peak_signal_noise_ratio(I_gray, Enc, data_range=255)
@@ -57,7 +69,7 @@ def compute_metrics_strong(I_gray, Enc, Dec, encrypt_func,
 
     # Entropy
     metrics["Entropy_Orig"] = image_entropy(I_gray)
-    metrics["Entropy_Enc"]  = image_entropy(Enc)
+    metrics["Entropy_Enc"] = image_entropy(Enc)
 
     # Correlation (Original)
     metrics["Corr_H_Orig"] = correlation_coeff(I_gray, "H")
