@@ -82,44 +82,56 @@ def root():
         "status": "Cloud Crypto API is running",
         "endpoints": ["/encrypt", "/decrypt"]
     }
-@app.post("/metrics")
-async def compute_metrics(
-    file: UploadFile = File(...),
-    dna_rounds: int = 1,
-    protein_rounds: int = 2,
-    r: float = 3.99,
-    x0: float = 0.7
+@app.post("/metrics_manual")
+async def compute_metrics_manual(
+    original: UploadFile = File(...),
+    encrypted: UploadFile = File(...),
+    decrypted: UploadFile = File(...)
 ):
-    # Load image
-    image = Image.open(file.file).convert("L")
-    I = np.array(image, dtype=np.uint8)
+    # Load images
+    I = np.array(Image.open(original.file).convert("L"), dtype=np.uint8)
+    Enc = np.array(Image.open(encrypted.file).convert("L"), dtype=np.uint8)
+    Dec = np.array(Image.open(decrypted.file).convert("L"), dtype=np.uint8)
 
-    # Encrypt
-    Enc = dna_protein_encrypt(
-        I.flatten(),
-        dna_rounds,
-        protein_rounds,
-        r,
-        x0
-    ).reshape(I.shape)
-
-    # Decrypt
-    Dec = dna_protein_decrypt(
-        Enc.flatten(),
-        dna_rounds,
-        protein_rounds,
-        r,
-        x0
-    ).reshape(I.shape)
+    # Shape check (IMPORTANT)
+    if I.shape != Enc.shape or I.shape != Dec.shape:
+        return {"error": "Image dimensions do not match"}
 
     # Compute metrics
-    metrics = compute_metrics_strong(
-        I, Enc, Dec,
-        dna_protein_encrypt,
-        dna_rounds,
-        protein_rounds,
-        r,
-        x0
-    )
+    metrics = {}
+
+    metrics["MSE_enc"] = np.mean((I.astype(float) - Enc.astype(float))**2)
+    metrics["MSE_dec"] = np.mean((I.astype(float) - Dec.astype(float))**2)
+
+    from skimage.metrics import peak_signal_noise_ratio, structural_similarity
+    metrics["PSNR_enc"] = peak_signal_noise_ratio(I, Enc, data_range=255)
+    metrics["SSIM"] = structural_similarity(I, Enc, data_range=255)
+
+    # Entropy
+    def entropy(img):
+        hist, _ = np.histogram(img.flatten(), bins=256, range=(0,256), density=True)
+        hist = hist[hist > 0]
+        return -np.sum(hist * np.log2(hist))
+
+    metrics["Entropy_Orig"] = entropy(I)
+    metrics["Entropy_Enc"] = entropy(Enc)
+
+    # Correlation (MATLAB-style)
+    def corr2(a, b):
+        a = a - np.mean(a)
+        b = b - np.mean(b)
+        return np.sum(a * b) / np.sqrt(np.sum(a*a) * np.sum(b*b))
+
+    metrics["Corr_H_Orig"] = corr2(I[:, :-1], I[:, 1:])
+    metrics["Corr_V_Orig"] = corr2(I[:-1, :], I[1:, :])
+    metrics["Corr_D_Orig"] = corr2(I[:-1, :-1], I[1:, 1:])
+
+    metrics["Corr_H_Enc"] = corr2(Enc[:, :-1], Enc[:, 1:])
+    metrics["Corr_V_Enc"] = corr2(Enc[:-1, :], Enc[1:, :])
+    metrics["Corr_D_Enc"] = corr2(Enc[:-1, :-1], Enc[1:, 1:])
+
+    # NPCR & UACI (between encrypted and decrypted is NOT valid)
+    # NPCR/UACI should be done between Enc and Enc_mod
+    metrics["NOTE"] = "NPCR/UACI must be computed using two encrypted images with slight plaintext difference"
 
     return metrics
