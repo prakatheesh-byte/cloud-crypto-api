@@ -3,8 +3,7 @@ from fastapi.responses import FileResponse
 from PIL import Image
 import numpy as np
 import os
-from metrics import compute_metrics_strong
-
+from metrics import compute_metrics
 from dna_protein_core import dna_protein_encrypt, dna_protein_decrypt
 
 
@@ -85,51 +84,23 @@ def root():
 @app.post("/metrics_manual")
 async def compute_metrics_manual(
     original: UploadFile = File(...),
-    encrypted: UploadFile = File(...),
-    decrypted: UploadFile = File(...)
+    encrypted: UploadFile = File(...)
 ):
-    # Load images
     I = np.array(Image.open(original.file).convert("L"), dtype=np.uint8)
     Enc = np.array(Image.open(encrypted.file).convert("L"), dtype=np.uint8)
-    Dec = np.array(Image.open(decrypted.file).convert("L"), dtype=np.uint8)
 
-    # Shape check (IMPORTANT)
-    if I.shape != Enc.shape or I.shape != Dec.shape:
+    if I.shape != Enc.shape:
         return {"error": "Image dimensions do not match"}
 
-    # Compute metrics
-    metrics = {}
-
-    metrics["MSE_enc"] = np.mean((I.astype(float) - Enc.astype(float))**2)
-    metrics["MSE_dec"] = np.mean((I.astype(float) - Dec.astype(float))**2)
-
-    from skimage.metrics import peak_signal_noise_ratio, structural_similarity
-    metrics["PSNR_enc"] = peak_signal_noise_ratio(I, Enc, data_range=255)
-    metrics["SSIM"] = structural_similarity(I, Enc, data_range=255)
-
-    # Entropy
-    def entropy(img):
-        hist, _ = np.histogram(img.flatten(), bins=256, range=(0,256), density=True)
-        hist = hist[hist > 0]
-        return -np.sum(hist * np.log2(hist))
-
-    metrics["Entropy_Orig"] = entropy(I)
-    metrics["Entropy_Enc"] = entropy(Enc)
-
-    # Correlation (MATLAB-style)
-    def corr2(a, b):
-        a = a - np.mean(a)
-        b = b - np.mean(b)
-        return np.sum(a * b) / np.sqrt(np.sum(a*a) * np.sum(b*b))
-
-    metrics["Corr_H_Orig"] = corr2(I[:, :-1], I[:, 1:])
-    metrics["Corr_V_Orig"] = corr2(I[:-1, :], I[1:, :])
-    metrics["Corr_D_Orig"] = corr2(I[:-1, :-1], I[1:, 1:])
-
-    metrics["Corr_H_Enc"] = corr2(Enc[:, :-1], Enc[:, 1:])
-    metrics["Corr_V_Enc"] = corr2(Enc[:-1, :], Enc[1:, :])
-    metrics["Corr_D_Enc"] = corr2(Enc[:-1, :-1], Enc[1:, 1:])
-
+    metrics = compute_metrics(
+        I,
+        Enc,
+        dna_protein_encrypt,
+        dna_rounds=1,
+        protein_rounds=2,
+        r=3.99,
+        x0=0.7
+    )
 
     return metrics
 
