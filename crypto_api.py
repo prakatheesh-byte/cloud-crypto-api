@@ -84,17 +84,25 @@ def root():
 @app.post("/metrics_manual")
 async def compute_metrics_manual(
     original: UploadFile = File(...),
-    encrypted: UploadFile = File(...)
+    encrypted: UploadFile = File(...),
+    decrypted: UploadFile = File(...),
 ):
     I = np.array(Image.open(original.file).convert("L"), dtype=np.uint8)
     Enc = np.array(Image.open(encrypted.file).convert("L"), dtype=np.uint8)
+    Dec = np.array(Image.open(decrypted.file).convert("L"), dtype=np.uint8)
 
-    if I.shape != Enc.shape:
-        return {"error": "Image dimensions do not match"}
+    if I.shape != Enc.shape or I.shape != Dec.shape:
+        return {
+            "error": "All images must have identical dimensions",
+            "original_shape": I.shape,
+            "encrypted_shape": Enc.shape,
+            "decrypted_shape": Dec.shape
+        }
 
     metrics = compute_metrics(
         I,
         Enc,
+        Dec,
         dna_protein_encrypt,
         dna_rounds=1,
         protein_rounds=2,
@@ -103,4 +111,3 @@ async def compute_metrics_manual(
     )
 
     return metrics
-
