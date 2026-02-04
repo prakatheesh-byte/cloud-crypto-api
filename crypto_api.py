@@ -130,8 +130,43 @@ async def compute_metrics_manual(
     metrics["Corr_V_Enc"] = corr2(Enc[:-1, :], Enc[1:, :])
     metrics["Corr_D_Enc"] = corr2(Enc[:-1, :-1], Enc[1:, 1:])
 
-    # NPCR & UACI (between encrypted and decrypted is NOT valid)
-    # NPCR/UACI should be done between Enc and Enc_mod
-    metrics["NOTE"] = "NPCR/UACI must be computed using two encrypted images with slight plaintext difference"
 
     return metrics
+    
+@app.post("/npcr_uaci")
+async def compute_npcr_uaci_api(
+    file: UploadFile = File(...),
+    dna_rounds: int = 1,
+    protein_rounds: int = 2,
+    r: float = 3.99,
+    x0: float = 0.7
+):
+    # Load image
+    image = Image.open(file.file).convert("L")
+    I = np.array(image, dtype=np.uint8)
+
+    # Modify one pixel
+    I_mod = I.copy()
+    h, w = I.shape
+    I_mod[h // 2, w // 2] ^= 128
+
+    # Encrypt both
+    Enc1 = dna_protein_encrypt(
+        I.flatten(), dna_rounds, protein_rounds, r, x0
+    ).reshape(I.shape)
+
+    Enc2 = dna_protein_encrypt(
+        I_mod.flatten(), dna_rounds, protein_rounds, r, x0
+    ).reshape(I.shape)
+
+    # NPCR & UACI
+    diff = Enc1 != Enc2
+    npcr = np.sum(diff) / diff.size * 100
+    uaci = np.sum(np.abs(Enc1.astype(np.int16) - Enc2.astype(np.int16))) \
+           / (Enc1.size * 255) * 100
+
+    return {
+        "NPCR_pct": npcr,
+        "UACI_pct": uaci
+    }
+
