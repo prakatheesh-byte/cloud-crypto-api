@@ -111,3 +111,4 @@ async def compute_metrics_manual(
     )
 
     return metrics
+    ## nothing
