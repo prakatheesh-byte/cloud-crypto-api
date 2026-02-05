@@ -101,24 +101,23 @@ def dna_protein_decrypt(arr, dna_rounds=1, protein_rounds=2, r=3.99, x0=0.7):
     return arr
 def chain_diffusion_keyed(arr, chaos, dna_rounds, protein_rounds):
     n = len(arr)
-    out = np.zeros_like(arr)
+    out = np.zeros_like(arr, dtype=np.int16)
 
     key_mix = (dna_rounds + 2 * protein_rounds) % 256
 
     # Forward diffusion
-    prev = chaos[0]
+    prev = int(chaos[0])
     for i in range(n):
-        out[i] = (arr[i] + prev + chaos[i] + key_mix) % 256
+        out[i] = (int(arr[i]) + prev + int(chaos[i]) + key_mix) % 256
         prev = out[i]
 
     # Backward diffusion
-    prev = chaos[-1]
+    prev = int(chaos[-1])
     for i in range(n - 1, -1, -1):
-        out[i] = (out[i] + prev + chaos[i] + key_mix) % 256
+        out[i] = (out[i] + prev + int(chaos[i]) + key_mix) % 256
         prev = out[i]
 
     return out.astype(np.uint8)
-
 
 def inverse_chain_diffusion_keyed(arr, chaos, dna_rounds, protein_rounds):
     n = len(arr)
