@@ -77,16 +77,15 @@ def dna_protein_encrypt(arr, dna_rounds=1, protein_rounds=2, r=3.99, x0=0.7):
 
     # Diffusion
     chaos = logistic_map(len(arr), r, x0)
-    encrypted = (arr.astype(np.int16) + chaos.astype(np.int16)) % 256
+    encrypted = chain_diffusion_keyed(arr, chaos, dna_rounds, protein_rounds)
+    return encrypted
 
-    return encrypted.astype(np.uint8)
 
 # ---------- DECRYPT ----------
 def dna_protein_decrypt(arr, dna_rounds=1, protein_rounds=2, r=3.99, x0=0.7):
     # Reverse diffusion
     chaos = logistic_map(len(arr), r, x0)
-    arr = (arr.astype(np.int16) - chaos.astype(np.int16)) % 256
-    arr = arr.astype(np.uint8)
+    arr = inverse_chain_diffusion_keyed(arr, chaos, dna_rounds, protein_rounds)
 
     # Reverse scrambling
     perm = chaotic_permutation(len(arr), r, x0)
@@ -100,3 +99,46 @@ def dna_protein_decrypt(arr, dna_rounds=1, protein_rounds=2, r=3.99, x0=0.7):
         arr = dna_decode(seq)
 
     return arr
+def chain_diffusion_keyed(arr, chaos, dna_rounds, protein_rounds):
+    n = len(arr)
+    out = np.zeros_like(arr)
+
+    key_mix = (dna_rounds + 2 * protein_rounds) % 256
+
+    # Forward diffusion
+    prev = chaos[0]
+    for i in range(n):
+        out[i] = (arr[i] + prev + chaos[i] + key_mix) % 256
+        prev = out[i]
+
+    # Backward diffusion
+    prev = chaos[-1]
+    for i in range(n - 1, -1, -1):
+        out[i] = (out[i] + prev + chaos[i] + key_mix) % 256
+        prev = out[i]
+
+    return out.astype(np.uint8)
+
+
+def inverse_chain_diffusion_keyed(arr, chaos, dna_rounds, protein_rounds):
+    n = len(arr)
+    out = arr.astype(np.int16)
+
+    key_mix = (dna_rounds + 2 * protein_rounds) % 256
+
+    # Reverse backward diffusion
+    prev = chaos[-1]
+    for i in range(n - 1, -1, -1):
+        temp = out[i]
+        out[i] = (out[i] - prev - chaos[i] - key_mix) % 256
+        prev = temp
+
+    # Reverse forward diffusion
+    prev = chaos[0]
+    for i in range(n):
+        temp = out[i]
+        out[i] = (out[i] - prev - chaos[i] - key_mix) % 256
+        prev = temp
+
+    return out.astype(np.uint8)
+
